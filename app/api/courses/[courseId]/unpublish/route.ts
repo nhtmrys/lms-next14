@@ -1,54 +1,55 @@
-import { auth } from "@clerk/nextjs";
+import { useCurrentUser } from "@/actions/use-current-user";
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 
 export async function PATCH(
-    req: Request,
-    { params }: { params: { courseId: string } }
+  req: Request,
+  { params }: { params: { courseId: string } }
 ) {
-    try {
-        const { userId } = auth();
+  try {
+    const currentUser = await useCurrentUser();
+    const userId = currentUser?.id;
 
-        /* 
+    /* 
 			Check if there's a logged in user (authentication)
 		*/
-        if (!userId) {
-            return new NextResponse("Unauthorized", { status: 401 });
-        }
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
 
-        /* 
+    /* 
 			Before unpublishing the course, make sure that it exist in
 			the database
 		*/
-        const course = await db.course.findUnique({
-            where: {
-                id: params.courseId,
-                userId,
-            },
-        });
+    const course = await db.course.findUnique({
+      where: {
+        id: params.courseId,
+        userId,
+      },
+    });
 
-        if (!course) {
-            return new NextResponse("Not found", { status: 404 });
-        }
+    if (!course) {
+      return new NextResponse("Not found", { status: 404 });
+    }
 
-        /* 
+    /* 
 			Finally, you can unpublish the course by setting its isPublished
 			property to false
 		*/
-        const unpublishedCourse = await db.course.update({
-            where: {
-                id: params.courseId,
-                userId,
-            },
-            data: {
-                isPublished: false,
-            },
-        });
+    const unpublishedCourse = await db.course.update({
+      where: {
+        id: params.courseId,
+        userId,
+      },
+      data: {
+        isPublished: false,
+      },
+    });
 
-        return NextResponse.json(unpublishedCourse);
-    } catch (error) {
-        console.log("[COURSE_ID_UNPUBLISH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
-    }
+    return NextResponse.json(unpublishedCourse);
+  } catch (error) {
+    console.log("[COURSE_ID_UNPUBLISH]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
 }

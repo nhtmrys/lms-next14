@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs";
+import { useCurrentUser } from "@/actions/use-current-user";
 import { redirect } from "next/navigation";
 
 import { isTeacher } from "@/lib/teacher";
@@ -8,14 +8,17 @@ import { isTeacher } from "@/lib/teacher";
 	a teacher to be the the one that will be allowed to access the /teacher
 	route
 */
-const TeacherLayout = ({ children }: { children: React.ReactNode }) => {
-    const { userId } = auth();
+const TeacherLayout = async ({ children }: { children: React.ReactNode }) => {
+  const currentUser = await useCurrentUser();
 
-    if (!isTeacher(userId)) {
-        return redirect("/");
-    }
+  console.log("currentUser", currentUser);
+  const userId = currentUser?.id;
 
-    return <>{children}</>;
+  if (!isTeacher(userId)) {
+    return redirect("/");
+  }
+
+  return <>{children}</>;
 };
 
 export default TeacherLayout;

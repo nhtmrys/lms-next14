@@ -1,52 +1,53 @@
 import { db } from "@/lib/db";
-import { auth } from "@clerk/nextjs";
+import { useCurrentUser } from "@/actions/use-current-user";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
-    req: Request,
-    { params }: { params: { courseId: string; chapterId: string } }
+  req: Request,
+  { params }: { params: { courseId: string; chapterId: string } }
 ) {
-    try {
-        /* 
+  try {
+    /* 
 			Check if there's a logged in user (authentication)
 		*/
-        const { userId } = auth();
+    const currentUser = await useCurrentUser();
+    const userId = currentUser?.id;
 
-        if (!userId) {
-            return new NextResponse("Unauthorized", { status: 401 });
-        }
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
 
-        /* 
+    /* 
 			Check if the user trying to unpublish a chapter of a course
             is the owner of the course (authorization)
 		*/
-        const courseOwner = await db.course.findUnique({
-            where: {
-                id: params.courseId,
-                userId,
-            },
-        });
+    const courseOwner = await db.course.findUnique({
+      where: {
+        id: params.courseId,
+        userId,
+      },
+    });
 
-        if (!courseOwner) {
-            return new NextResponse("Unauthorized", { status: 401 });
-        }
+    if (!courseOwner) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
 
-        /* 
+    /* 
 			We did not perform a check if the chapter the user is trying to
 			delete exist but you are welcome to do so. Here, we are directly
 			going to update the chapter's isPublished property to false
 		*/
-        const unpublishedChapter = await db.chapter.update({
-            where: {
-                id: params.chapterId,
-                courseId: params.courseId,
-            },
-            data: {
-                isPublished: false,
-            },
-        });
+    const unpublishedChapter = await db.chapter.update({
+      where: {
+        id: params.chapterId,
+        courseId: params.courseId,
+      },
+      data: {
+        isPublished: false,
+      },
+    });
 
-        /* 
+    /* 
 			Since we only allow a course to be publishable if at least one
             of its chapters was published. We need to perform a check.  
             By unpublishing a chapter, it's possible that a course will no  
@@ -57,27 +58,27 @@ export async function PATCH(
             length value is 0 we are going to update the course's isPublished
             value to false
 		*/
-        const publishedChaptersInCourse = await db.chapter.findMany({
-            where: {
-                courseId: params.courseId,
-                isPublished: true,
-            },
-        });
+    const publishedChaptersInCourse = await db.chapter.findMany({
+      where: {
+        courseId: params.courseId,
+        isPublished: true,
+      },
+    });
 
-        if (!publishedChaptersInCourse.length) {
-            await db.course.update({
-                where: {
-                    id: params.courseId,
-                },
-                data: {
-                    isPublished: false,
-                },
-            });
-        }
-
-        return NextResponse.json(unpublishedChapter);
-    } catch (error) {
-        console.log("[CHAPTER_UNPUBLISH]", error);
-        return new NextResponse("Internal Error", { status: 500 });
+    if (!publishedChaptersInCourse.length) {
+      await db.course.update({
+        where: {
+          id: params.courseId,
+        },
+        data: {
+          isPublished: false,
+        },
+      });
     }
+
+    return NextResponse.json(unpublishedChapter);
+  } catch (error) {
+    console.log("[CHAPTER_UNPUBLISH]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
 }
